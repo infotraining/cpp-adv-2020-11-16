@@ -91,12 +91,28 @@ public:
         std::cout << "Gadget(" << id_ << ", " << name_ << ")\n";
     }
 
-    Gadget(const Gadget&) = default;
+    Gadget(const Gadget& source) : id_{source.id_}, name_{source.name_}
+    {
+        std::cout << "Gadget(cc: " << id_ << ", " << name_ << ")\n";
+    }
+
     Gadget& operator=(const Gadget&) = default;
-    Gadget(Gadget&&) = default;
+    
+    Gadget(Gadget&& source) noexcept : id_{std::move(source.id_)}, name_{std::move(source.name_)}
+    {
+        try
+        {
+            std::cout << "Gadget(mv: " << id_ << ", " << name_ << ")\n";
+        }
+        catch(...)
+        {
+            //
+        }
+    }
+    
     Gadget& operator=(Gadget&&) = default;
 
-    ~Gadget()
+    ~Gadget() noexcept
     {
         std::cout << "~Gadget(" << id_ << ", " << name_ << ")\n";
     }
@@ -140,14 +156,14 @@ public:
     UniquePtr& operator=(const UniquePtr&) = delete;
 
     // move constructor
-    UniquePtr(UniquePtr&& source)
+    UniquePtr(UniquePtr&& source) noexcept
         : ptr_ {std::move(source.ptr_)}
     {
         source.ptr_ = nullptr;
     }
 
     // move assignment
-    UniquePtr& operator=(UniquePtr&& source) // a = std::move(b) = std::move(c)
+    UniquePtr& operator=(UniquePtr&& source) noexcept // a = std::move(b) = std::move(c)
     {
         if (this != &source) // protection from: a = std::move(a)
         {
@@ -161,7 +177,7 @@ public:
         return *this;
     }
 
-    ~UniquePtr()
+    ~UniquePtr() noexcept
     {
         delete ptr_;
     }
@@ -304,4 +320,25 @@ TEST_CASE("Special functions")
     target.print();
 
     REQUIRE(asfad1.data.size() == 0);
+}
+
+TEST_CASE("vector + move semantics")
+{
+    std::cout << "\n----------------------\n";
+    std::vector<Gadget> gadgets;
+
+    gadgets.push_back(Gadget(1, "ipad"));
+    std::cout << "----------------------\n";
+
+    gadgets.push_back(Gadget(2, "ipad"));
+    std::cout << "----------------------\n";
+
+    gadgets.push_back(Gadget(3, "ipad"));
+    std::cout << "----------------------\n";
+
+    gadgets.push_back(Gadget(4, "ipad"));
+    std::cout << "----------------------\n";
+
+    gadgets.push_back(Gadget(5, "ipad"));
+    std::cout << "----------------------\n";
 }
