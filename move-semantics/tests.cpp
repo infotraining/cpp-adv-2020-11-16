@@ -2,6 +2,7 @@
 #include <iostream>
 #include <string>
 #include <vector>
+#include <memory>
 
 using namespace std;
 using namespace Catch::Matchers;
@@ -75,3 +76,137 @@ TEST_CASE("vector + push_back")
 
     REQUIRE(ptr_name == ptr_after_move_and_reinit);
 } // safe
+
+class Gadget
+{
+public:
+    int id_ = 0;
+    std::string name_;
+
+    Gadget() = default; // user-declared
+
+    Gadget(int id, const std::string& name) : id_{id}, name_{name}
+    {
+        std::cout << "Gadget(" << id_ << ", " << name_ << ")\n";
+    }
+
+    ~Gadget()
+    {
+        std::cout << "~Gadget(" << id_ << ", " << name_ << ")\n";
+    }
+
+    void use() const
+    {
+        std::cout << "Using Gadget(" << id_ << ", " << name_ << ")\n";
+    }
+};
+
+TEST_CASE("Gadget")
+{
+    Gadget g1{1, "ipad"};
+
+    Gadget g2 = g1;
+
+    Gadget g3 = std::move(g1);
+
+    REQUIRE(g3.id_ == 1);
+    REQUIRE(g3.name_ == "ipad"s);
+
+    SECTION("not safe")
+    {
+        REQUIRE(g1.id_ == 1);
+        //REQUIRE(g1.name_ == ""s);
+    }
+}
+
+template <typename T>
+class UniquePtr
+{
+    T* ptr_;
+public:
+    explicit UniquePtr(T* ptr) : ptr_{ptr}
+    {}
+
+    UniquePtr(const UniquePtr&) = delete;
+    UniquePtr& operator=(const UniquePtr&) = delete;
+
+    // move constructor
+    UniquePtr(UniquePtr&& source) 
+        : ptr_{std::move(source.ptr_)}
+    {
+        source.ptr_ = nullptr;
+    }
+
+    // move assignment
+    UniquePtr& operator=(UniquePtr&& source) // a = std::move(b) = std::move(c)
+    {
+        if (this != &source) // protection from: a = std::move(a)
+        {
+            delete ptr_;
+
+            ptr_ = std::move(source.ptr_);
+            source.ptr_ = nullptr;
+        }
+
+        return *this;
+    }
+
+    ~UniquePtr()
+    {
+        delete ptr_;
+    }
+
+    explicit operator bool() const
+    {
+        return ptr_ != nullptr;
+    }
+
+    T& operator*() const
+    {
+        return *ptr_;
+    }
+
+    T* operator->() const
+    {
+        return ptr_;
+    }
+
+    T* get() const
+    {
+        return ptr_;
+    }
+};
+
+UniquePtr<Gadget> create_gadget()
+{
+    static int id = 0;
+
+    ++id;
+    return UniquePtr<Gadget>(new Gadget(id, "gadget"s + std::to_string(id)));
+}
+
+TEST_CASE("UniquePtr & move semantics")
+{
+    std::unique_ptr<Gadget> uptr;
+
+    std::cout << "\n=======================\n";
+    UniquePtr<Gadget> ptr_g1(new Gadget(1, "ipad"));
+
+    if (ptr_g1)
+        ptr_g1->use();
+
+    UniquePtr<Gadget> ptr_g2 = std::move(ptr_g1);
+
+    if (ptr_g2)
+        ptr_g2->use();        
+    
+    REQUIRE(ptr_g1.get() == nullptr);
+
+    ptr_g2 = UniquePtr<Gadget>(new Gadget(2, "tablet"));
+
+    ptr_g2->use();
+
+    ptr_g2 = create_gadget();
+
+    ptr_g2->use();
+}
