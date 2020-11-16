@@ -41,6 +41,24 @@ namespace LegacyCode
             return *this;
         }
 
+        // move semantics
+        Paragraph(Paragraph&& p) : buffer_{std::move(p.buffer_)}
+        {
+            p.buffer_ = nullptr;
+        }
+
+        Paragraph& operator=(Paragraph&& p)
+        {
+            if(this != &p)
+            {
+                delete[] buffer_;
+
+                buffer_ = std::move(p.buffer_);
+                p.buffer_ = nullptr;
+            }
+            return *this;
+        }
+
         void set_paragraph(const char* txt)
         {
             std::strcpy(buffer_, txt);
@@ -56,7 +74,7 @@ namespace LegacyCode
             std::cout << "Rendering text '" << buffer_ << "' at: [" << posx << ", " << posy << "]" << std::endl;
         }
 
-        virtual ~Paragraph()
+        ~Paragraph()
         {
             delete[] buffer_;
         }
