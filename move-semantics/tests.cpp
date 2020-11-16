@@ -1,8 +1,8 @@
 #include "catch.hpp"
 #include <iostream>
+#include <memory>
 #include <string>
 #include <vector>
-#include <memory>
 
 using namespace std;
 using namespace Catch::Matchers;
@@ -33,13 +33,12 @@ TEST_CASE("reference binding")
         REQUIRE(rv_ref_full_name == "Jan kowalski");
 
         //std::string&& rv_name = name;
-        
+
         SECTION("std::move()")
         {
             std::string&& rv_name = std::move(name);
         }
-
-    }        
+    }
 }
 
 namespace Explain
@@ -85,10 +84,17 @@ public:
 
     Gadget() = default; // user-declared
 
-    Gadget(int id, const std::string& name) : id_{id}, name_{name}
+    Gadget(int id, const std::string& name)
+        : id_ {id}
+        , name_ {name}
     {
         std::cout << "Gadget(" << id_ << ", " << name_ << ")\n";
     }
+
+    Gadget(const Gadget&) = default;
+    Gadget& operator=(const Gadget&) = default;
+    Gadget(Gadget&&) = default;
+    Gadget& operator=(Gadget&&) = default;
 
     ~Gadget()
     {
@@ -103,7 +109,7 @@ public:
 
 TEST_CASE("Gadget")
 {
-    Gadget g1{1, "ipad"};
+    Gadget g1 {1, "ipad"};
 
     Gadget g2 = g1;
 
@@ -123,16 +129,19 @@ template <typename T>
 class UniquePtr
 {
     T* ptr_;
+
 public:
-    explicit UniquePtr(T* ptr) : ptr_{ptr}
-    {}
+    explicit UniquePtr(T* ptr)
+        : ptr_ {ptr}
+    {
+    }
 
     UniquePtr(const UniquePtr&) = delete;
     UniquePtr& operator=(const UniquePtr&) = delete;
 
     // move constructor
-    UniquePtr(UniquePtr&& source) 
-        : ptr_{std::move(source.ptr_)}
+    UniquePtr(UniquePtr&& source)
+        : ptr_ {std::move(source.ptr_)}
     {
         source.ptr_ = nullptr;
     }
@@ -145,6 +154,7 @@ public:
             delete ptr_;
 
             ptr_ = std::move(source.ptr_);
+
             source.ptr_ = nullptr;
         }
 
@@ -198,8 +208,8 @@ TEST_CASE("UniquePtr & move semantics")
     UniquePtr<Gadget> ptr_g2 = std::move(ptr_g1);
 
     if (ptr_g2)
-        ptr_g2->use();        
-    
+        ptr_g2->use();
+
     REQUIRE(ptr_g1.get() == nullptr);
 
     ptr_g2 = UniquePtr<Gadget>(new Gadget(2, "tablet"));
@@ -209,4 +219,89 @@ TEST_CASE("UniquePtr & move semantics")
     ptr_g2 = create_gadget();
 
     ptr_g2->use();
+}
+
+TEST_CASE("move does not move")
+{
+    SECTION("const objects can not be moved")
+    {
+        const std::string str = "text";
+
+        std::string target = std::move(str);
+        REQUIRE(str == "text"s);
+        REQUIRE(target == "text"s);
+
+        const Gadget g {1, "g1"};
+        Gadget g_target = std::move(g);
+        REQUIRE(g.name_ == "g1"s);
+    }
+}
+
+struct AllSpecialFunctionsAreDefault
+{
+    int id;
+    std::string name;
+    std::vector<int> data;
+
+    AllSpecialFunctionsAreDefault() = default;
+
+    AllSpecialFunctionsAreDefault(int id, std::string n, std::vector<int> d)
+        : id {id}
+        , name {std::move(n)}
+        , data {std::move(d)}
+    {
+    }
+
+    void print() const
+    {
+        std::cout << "ASFAD(" << id << ", " << name << ", [ ";
+        for (const auto& item : data)
+            std::cout << item << " ";
+        std::cout << "])\n";
+    }
+};
+
+struct RuleOfFive
+{
+    int id;
+    std::string name;
+    std::vector<int> data;
+
+    RuleOfFive() = default;
+
+    RuleOfFive(int id, std::string n, std::vector<int> d)
+        : id {id}
+        , name {std::move(n)}
+        , data {std::move(d)}
+    {
+    }
+
+    RuleOfFive(const RuleOfFive&) = default;
+    RuleOfFive& operator=(const RuleOfFive&) = default;
+    RuleOfFive(RuleOfFive&&) = default;
+    RuleOfFive& operator=(RuleOfFive&&) = default;
+    ~RuleOfFive() { }
+
+    void print() const
+    {
+        std::cout << "ASFAD(" << id << ", " << name << ", [ ";
+        for (const auto& item : data)
+            std::cout << item << " ";
+        std::cout << "])\n";
+    }
+};
+
+TEST_CASE("Special functions")
+{
+    string text = "text";
+    AllSpecialFunctionsAreDefault asfad1 {1, text, {1, 2, 3}};
+    asfad1.print();
+
+    AllSpecialFunctionsAreDefault backup = asfad1;
+    backup.print();
+
+    AllSpecialFunctionsAreDefault target = std::move(asfad1);
+    target.print();
+
+    REQUIRE(asfad1.data.size() == 0);
 }
