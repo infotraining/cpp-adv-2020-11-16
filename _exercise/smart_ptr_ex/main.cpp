@@ -11,7 +11,7 @@ class Gadget
 public:
     // konstruktor
     Gadget(int id = 0)
-        : id_{id}
+        : id_ {id}
     {
         std::cout << "Konstruktor Gadget(" << id_ << ")\n";
     }
@@ -71,34 +71,51 @@ void reset_value(Gadget& g, int n)
 //////////////////////////////////////////////
 // TODO - modernize the code below
 
-Gadget* create_gadget(int arg)
+std::unique_ptr<Gadget> create_gadget(int arg)
 {
-    return new Gadget(arg);
+    return std::make_unique<Gadget>(arg);
 }
 
 class Player
 {
-    Gadget* gadget_;
+    std::unique_ptr<Gadget> gadget_;
     std::ostream* logger_;
 
-    Player(const Player&);
-    Player& operator=(const Player&);
-
 public:
-    Player(Gadget* g, std::ostream* logger = NULL)
-        : gadget_(g)
-        , logger_(logger)
+    Player(std::unique_ptr<Gadget> g, std::ostream* logger = nullptr)
+        : gadget_ {std::move(g)}
+        , logger_ {logger}
     {
-        if (g == NULL)
+        if (!gadget_)
             throw std::invalid_argument("Gadget can not be null");
+    }
+
+    Player(const Player&) = delete;
+    Player& operator=(const Player&) = delete;
+
+    Player(Player&& p) noexcept
+        : gadget_ {std::move(p.gadget_)}
+        , logger_ {std::move(p.logger_)}
+    {
+        p.logger_ = nullptr;
+    }
+
+    Player& operator=(Player&& p) noexcept
+    {
+        if (this != &p)
+        {
+            gadget_ = std::move(p.gadget_);
+            logger_ = std::move(p.logger_);
+            p.logger_ = nullptr;
+        }
+
+        return *this;
     }
 
     ~Player()
     {
         if (logger_)
             *logger_ << "Destroing a gadget: " << gadget_->id() << std::endl;
-
-        delete gadget_;
     }
 
     void play()
@@ -112,66 +129,56 @@ public:
 
 void unsafe1() // TODO: poprawa z wykorzystaniem smart_ptr
 {
-    Gadget* ptr_gdgt = create_gadget(4);
+    std::unique_ptr<Gadget> ptr_gdgt = create_gadget(4);
 
     /* kod korzystajacy z ptrX */
 
     reset_value(*ptr_gdgt, 5);
 
     ptr_gdgt->unsafe();
-
-    delete ptr_gdgt;
 }
 
-void unsafe2()
+void unsafe2() // TODO: poprawa z wykorzystaniem smart_ptr
 {
     int size = 10;
 
-    Gadget* buffer = LegacyCode::create_many_gadgets(size);
-
+    std::unique_ptr<Gadget[]> buffer{LegacyCode::create_many_gadgets(10)};
     /* kod korzystający z buffer */
 
     for (int i = 0; i < size; ++i)
         buffer[0].unsafe();
-
-    delete[] buffer;
 }
 
 void unsafe3()
 {
-    vector<Gadget*> my_gadgets;
+    vector<std::unique_ptr<Gadget>> my_gadgets;
 
-    my_gadgets.push_back(create_gadget(87));
-    my_gadgets.push_back(create_gadget(12));
-    my_gadgets.push_back(new Gadget(98));
+    my_gadgets.emplace_back(create_gadget(87));
+    my_gadgets.emplace_back(create_gadget(12));
+    my_gadgets.emplace_back(std::make_unique<Gadget>(98));
 
     int value_generator = 0;
-    for (vector<Gadget*>::iterator it = my_gadgets.begin(); it != my_gadgets.end(); ++it)
+    for (auto& g : my_gadgets)
     {
-        cout << "Gadget's old id: " << (*it)->id() << endl;
-        reset_value(**it, ++value_generator);
+        cout << "Gadget's old id: " << g->id() << endl;
+        reset_value(*g, ++value_generator);
     }
 
-    delete my_gadgets[0];
-    my_gadgets[0] = NULL;
+    my_gadgets[0].reset();
 
-    Player p(my_gadgets.back());
-    my_gadgets.back() = NULL;
+    Player p(std::move(my_gadgets.back()));
     p.play();
 
     my_gadgets[1]->unsafe();
-
-    // cleanup
-    for (vector<Gadget*>::iterator it = my_gadgets.begin(); it != my_gadgets.end(); ++it)
-        delete *it;
 }
 
-int main() try
+int main()
+try
 {
     try
     {
-        unsafe1();
-        unsafe2();
+        //unsafe1();
+        //unsafe2();
         unsafe3();
     }
     catch (const exception& e)
