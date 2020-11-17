@@ -3,11 +3,12 @@
 #include <memory>
 #include <string>
 #include <vector>
+#include <map>
 
 using namespace std;
 using namespace Catch::Matchers;
 
-string full_name(const string& first, const string& last)
+std::string full_name(const std::string& first, const std::string& last)
 {
     return first + " " + last;
 }
@@ -46,15 +47,24 @@ namespace Explain
     template <typename T>
     class vector
     {
+        std::vector<T> items_;
     public:
         void push_back(const T& item)
         {
             std::cout << "push_back " << item << " by copy\n";
+            items_.push_back(item);
         }
 
         void push_back(T&& item)
         {
             std::cout << "push_back " << item << " by move\n";
+            items_.push_back(std::move(item));
+        }
+
+        template <typename TArg>
+        void emplace_back(TArg&& arg)
+        {
+            items_.emplace_back(std::forward<TArg>(arg));
         }
     };
 }
@@ -91,25 +101,29 @@ public:
         std::cout << "Gadget(" << id_ << ", " << name_ << ")\n";
     }
 
-    Gadget(const Gadget& source) : id_{source.id_}, name_{source.name_}
+    Gadget(const Gadget& source)
+        : id_ {source.id_}
+        , name_ {source.name_}
     {
         std::cout << "Gadget(cc: " << id_ << ", " << name_ << ")\n";
     }
 
     Gadget& operator=(const Gadget&) = default;
-    
-    Gadget(Gadget&& source) noexcept : id_{std::move(source.id_)}, name_{std::move(source.name_)}
+
+    Gadget(Gadget&& source) noexcept
+        : id_ {std::move(source.id_)}
+        , name_ {std::move(source.name_)}
     {
         try
         {
             std::cout << "Gadget(mv: " << id_ << ", " << name_ << ")\n";
         }
-        catch(...)
+        catch (...)
         {
             //
         }
     }
-    
+
     Gadget& operator=(Gadget&&) = default;
 
     ~Gadget() noexcept
@@ -134,10 +148,10 @@ TEST_CASE("Gadget")
     REQUIRE(g3.id_ == 1);
     REQUIRE(g3.name_ == "ipad"s);
 
-    SECTION("not safe")
+    SECTION("use after move is not safe")
     {
         REQUIRE(g1.id_ == 1);
-        //REQUIRE(g1.name_ == ""s);
+        REQUIRE(g1.name_ == ""s);
     }
 }
 
@@ -211,12 +225,19 @@ UniquePtr<Gadget> create_gadget()
     return UniquePtr<Gadget>(new Gadget(id, "gadget"s + std::to_string(id)));
 }
 
+template <typename T, typename TArg1, typename TArg2>
+UniquePtr<T> MakeUnique(TArg1&& arg1, TArg2&& arg2)
+{
+    return UniquePtr<T>(new T(std::forward<TArg1>(arg1), std::forward<TArg2>(arg2)));
+}
+
 TEST_CASE("UniquePtr & move semantics")
 {
     std::unique_ptr<Gadget> uptr;
 
     std::cout << "\n=======================\n";
-    UniquePtr<Gadget> ptr_g1(new Gadget(1, "ipad"));
+    //UniquePtr<Gadget> ptr_g1(new Gadget(1, "ipad"));
+    UniquePtr<Gadget> ptr_g1 = MakeUnique<Gadget>(1, "ipad");
 
     if (ptr_g1)
         ptr_g1->use();
@@ -253,15 +274,15 @@ TEST_CASE("move does not move")
     }
 }
 
-struct AllSpecialFunctionsAreDefault
+struct All5SpecialFunctionsAreDefault
 {
     int id;
     std::string name;
     std::vector<int> data;
 
-    AllSpecialFunctionsAreDefault() = default;
+    All5SpecialFunctionsAreDefault() = default;
 
-    AllSpecialFunctionsAreDefault(int id, std::string n, std::vector<int> d)
+    All5SpecialFunctionsAreDefault(int id, std::string n, std::vector<int> d)
         : id {id}
         , name {std::move(n)}
         , data {std::move(d)}
@@ -310,13 +331,13 @@ struct RuleOfFive
 TEST_CASE("Special functions")
 {
     string text = "text";
-    AllSpecialFunctionsAreDefault asfad1 {1, text, {1, 2, 3}};
+    All5SpecialFunctionsAreDefault asfad1 {1, text, {1, 2, 3}};
     asfad1.print();
 
-    AllSpecialFunctionsAreDefault backup = asfad1;
+    All5SpecialFunctionsAreDefault backup = asfad1;
     backup.print();
 
-    AllSpecialFunctionsAreDefault target = std::move(asfad1);
+    All5SpecialFunctionsAreDefault target = std::move(asfad1);
     target.print();
 
     REQUIRE(asfad1.data.size() == 0);
@@ -342,3 +363,114 @@ TEST_CASE("vector + move semantics")
     gadgets.push_back(Gadget(5, "ipad"));
     std::cout << "----------------------\n";
 }
+
+///////////////////////////////////////////////////////////
+// PERFECT FORWARDING
+//
+
+void have_fun(Gadget& g)
+{
+	puts(__PRETTY_FUNCTION__);
+	std::cout << "Having fun with " << g.name_ << "\n";
+}
+
+void have_fun(const Gadget& g)
+{
+	puts(__PRETTY_FUNCTION__);
+	std::cout << "Having fun with " << g.name_ << "\n";
+}
+
+void have_fun(Gadget&& g)
+{
+	puts(__PRETTY_FUNCTION__);
+	std::cout << "Having fun with " << g.name_ << "\n";
+}
+
+// void use(Gadget& g)
+// {
+//     puts(__PRETTY_FUNCTION__);
+//     have_fun(g);
+// }
+
+// void use(const Gadget& g)
+// {
+//     puts(__PRETTY_FUNCTION__);
+//     have_fun(g);
+// }
+
+// void use(Gadget&& g)
+// {
+//     puts(__PRETTY_FUNCTION__);
+//     have_fun(std::move(g));
+// }
+
+template <typename TGadget>
+void use(TGadget&& g)
+{
+    puts(__PRETTY_FUNCTION__);
+    have_fun(std::forward<TGadget>(g));    
+}
+
+// namespace Cpp20
+// {    
+//     void use(auto&& g)
+//     {
+//         puts(__PRETTY_FUNCTION__);
+//         have_fun(std::forward<TGadget>(g));    
+//     }
+// }
+
+TEST_CASE("perfect forwarding")
+{
+    std::cout << "\n\n----------------------\n";
+    Gadget g1{1, "g1"};
+    const Gadget cg2{2, "cg2"};
+
+    use(g1);
+    std::cout << "----------------------\n";
+    use(cg2);
+    std::cout << "----------------------\n";
+    use(Gadget{3, "temp g3"});
+}
+
+TEST_CASE("auto & universal reference")
+{
+    int x = 10;
+    auto&& uref1 = x; // int&
+
+    auto&& uref2 = 10; // int&&
+}
+
+TEST_CASE("perfect forwarding - use cases")
+{
+    std::cout << "\n\n----------------------\n";
+
+    SECTION("container + emplace")
+    {
+        std::vector<Gadget> vec;
+        //vec.push_back(Gadget{1, "ipad"});
+        vec.emplace_back(1, "ipad");
+
+        std::map<int, std::string> dict;
+        dict.insert(make_pair(1, "one"s));
+        dict.emplace(2, "two");
+    }
+
+    SECTION("std::make_unique || std::make_shared")
+    {
+        std::unique_ptr<Gadget> ptrg = std::make_unique<Gadget>(42, "smartthing");   
+        ptrg->use();     
+    }
+}
+
+TEST_CASE("drawing")
+{
+    std::vector<int> vec = {1, 2, 3};
+
+    std::vector<int> backup = vec;  // copy
+
+    std::vector<int> target = std::move(vec);
+
+    vec = vector<int>{4, 5, 6};
+}
+
