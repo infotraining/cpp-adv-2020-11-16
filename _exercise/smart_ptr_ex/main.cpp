@@ -156,6 +156,7 @@ void unsafe3()
     my_gadgets.emplace_back(create_gadget(87));
     my_gadgets.emplace_back(create_gadget(12));
     my_gadgets.emplace_back(std::make_unique<Gadget>(98));
+    
 
     int value_generator = 0;
     for (auto& g : my_gadgets)
