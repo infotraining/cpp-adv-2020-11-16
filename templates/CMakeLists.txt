@@ -32,7 +32,7 @@ add_executable(${PROJECT_NAME} ${SRC_LIST} ${HEADERS_LIST})
 #----------------------------------------
 # Compile options
 #----------------------------------------
-target_compile_features(${PROJECT_NAME} PUBLIC cxx_std_14)
+target_compile_features(${PROJECT_NAME} PUBLIC cxx_std_17)
 
 #----------------------------------------
 # Libraries
