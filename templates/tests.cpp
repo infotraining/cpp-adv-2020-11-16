@@ -1,8 +1,8 @@
 #include "catch.hpp"
 #include <iostream>
+#include <list>
 #include <string>
 #include <vector>
-#include <list>
 
 using namespace std;
 
@@ -80,12 +80,18 @@ template <typename TContainer>
 decltype(auto) element_at(TContainer& container, size_t index)
 {
     auto it = std::begin(container);
-    // for(auto i = 0u; i < index; ++i)
-    // {
-    //     ++it;
-    // }
 
-    //it += index;
+    // if constexpr(???)
+    // {
+    //     it += index;
+    // }
+    // else
+    // {
+    //     for (auto i = 0u; i < index; ++i)
+    //     {
+    //         ++it;
+    //     }
+    // }
 
     std::advance(it, index);
 
@@ -110,6 +116,6 @@ TEST_CASE("templates & return type")
     int tab[10] = {1, 2, 3};
     element_at(tab, 0) = 665;
 
-    vector<bool> vb{0, 0, 1, 1};
+    vector<bool> vb {0, 0, 1, 1};
     element_at(vb, 1) = true;
 }
