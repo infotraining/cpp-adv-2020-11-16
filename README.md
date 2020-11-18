@@ -1,5 +1,9 @@
 # Szkolenie - Zaawansowane programowanie w C++ #
 
+## Ankieta
+
+* https://forms.gle/gKbjG77h9E6xGKFc6
+
 ## Docs
 
 * https://infotraining.bitbucket.io/cpp-adv
