@@ -1,8 +1,8 @@
 #include "catch.hpp"
 #include <iostream>
 #include <string>
-#include <vector>
 #include <type_traits>
+#include <vector>
 
 using namespace std;
 using namespace Catch::Matchers;
@@ -78,12 +78,53 @@ namespace ModernCpp
     template <typename TContainer>
     auto sum(const TContainer& container)
     {
-        using TResult = 
-            std::remove_cv_t<std::remove_reference_t<decltype(*begin(container))>>;
+        using TResult = std::remove_cv_t<std::remove_reference_t<decltype(*begin(container))>>;
         TResult result = TResult();
         for (auto it = std::begin(container); it != std::end(container); ++it)
         {
             result += *it;
+        }
+
+        return result;
+    }
+}
+
+template <typename T>
+struct SumTraits
+{
+    using SumType = T;
+    inline static const T zero = T();
+};
+
+template <>
+struct SumTraits<uint8_t>
+{
+    using SumType = uint64_t;
+    inline static constexpr uint64_t zero = 0;
+};
+
+template <typename T1, typename T2>
+struct SumPolicy
+{
+    static void sum(T1& total, const T2& item)
+    {
+        total += item;
+    }
+};
+
+namespace Traits
+{
+    template <typename TContainer>
+    auto sum(const TContainer& container)
+    {
+        using T = std::remove_cv_t<std::remove_reference_t<decltype(*begin(container))>>;
+
+        using TResult = typename SumTraits<T>::SumType;
+        TResult result = SumTraits<T>::zero;
+        for (auto it = std::begin(container); it != std::end(container); ++it)
+        {
+            //result += *it;
+            SumPolicy<TResult, T>::sum(result, *it);
         }
 
         return result;
@@ -100,7 +141,13 @@ TEST_CASE("Test")
 
     REQUIRE(ModernCpp::sum(tab) == 6);
 
-    vector<vector<int>> data = { {1, 2, 3}, {4, 5, 6} };
+    // vector<vector<int>> data = {{1, 2, 3}, {4, 5, 6}};
+    // auto result = ModernCpp::sum(data);
 
-    auto result = ModernCpp::sum(data);
+    vector<uint8_t> numbers = {250, 50};
+
+    REQUIRE(Traits::sum(numbers) == 300);
+
+    vector<string> words = {"a", "bc", "d"};
+    REQUIRE(Traits::sum(words) == "abcd"s);
 }
