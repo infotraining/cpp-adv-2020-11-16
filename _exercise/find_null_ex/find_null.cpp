@@ -9,7 +9,66 @@
 
 using namespace std;
 
-// TODO
+namespace Explain
+{
+    template <typename TContainer>
+    auto begin(TContainer& container)
+    {
+        return container.begin();
+    }
+
+    template <typename T, size_t N>
+    auto begin(T(&tab)[N])
+    {
+        return tab;
+    }
+
+    template <typename TContainer>
+    auto end(TContainer& container)
+    {
+        return container.end();
+    }
+
+    template <typename T, size_t N>
+    auto end(T(&tab)[N])
+    {
+        return tab + N;
+    }
+
+    template <typename TContainer>
+    auto size(const TContainer& container)
+    {
+        return container.size();
+    }
+
+    template <typename T, size_t N>
+    auto size(T(&tab)[N])
+    {
+        return N;
+    }
+}
+
+TEST_CASE("Explain size etc.")
+{
+    vector<int> vec = {1, 2, 3};
+    REQUIRE(Explain::size(vec) == 3);
+
+    int tab[] = {1, 2, 3};
+    REQUIRE(Explain::size(tab) == 3);
+}
+
+template <typename ContainerT>
+auto find_null(ContainerT& container)
+{
+    for(auto iter = std::begin(container); iter != std::end(container); ++iter)
+    {
+        if(*iter == nullptr)
+        {
+            return iter;
+        }
+    }
+    return std::end(container);
+}
 
 TEST_CASE("find_null description")
 {
