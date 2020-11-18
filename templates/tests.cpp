@@ -81,19 +81,20 @@ decltype(auto) element_at(TContainer& container, size_t index)
 {
     auto it = std::begin(container);
 
-    // if constexpr(???)
-    // {
-    //     it += index;
-    // }
-    // else
-    // {
-    //     for (auto i = 0u; i < index; ++i)
-    //     {
-    //         ++it;
-    //     }
-    // }
+    using TIterator = decltype(std::begin(container));
+    using TIteratorCatTag = typename std::iterator_traits<TIterator>::iterator_category;
 
-    std::advance(it, index);
+    if constexpr (is_same_v<TIteratorCatTag, std::random_access_iterator_tag>)
+    {
+        it += index;
+    }
+    else
+    {
+        for (auto i = 0u; i < index; ++i)
+        {
+            ++it;
+        }
+    }
 
     return *it;
 }
@@ -118,4 +119,67 @@ TEST_CASE("templates & return type")
 
     vector<bool> vb {0, 0, 1, 1};
     element_at(vb, 1) = true;
+}
+
+//////////////////////////////////////
+// optimizing implementation for types
+
+// template <typename T>
+// bool is_power_of_2(T value)
+// {
+//     return value > 0 && (value & (value - 1)) == 0;
+// }
+
+// template <typename T>
+// bool is_power_of_2(T value)
+// {
+//     int exponent;
+//     const T mantissa = std::frexp(value, &exponent);
+//     return mantissa == T(0.5);
+// }
+
+template <typename T>
+bool is_power_of_2(T value)
+{
+    if constexpr (std::is_integral_v<T>)
+        return value > 0 && (value & (value - 1)) == 0;
+    else if constexpr (std::is_floating_point_v<T>)
+    {
+        int exponent;
+        const T mantissa = std::frexp(value, &exponent);
+        return mantissa == T(0.5);
+    }
+}
+
+template <typename T1, typename T2, size_t N>
+void mcopy(T1(&source)[N], T2(&target)[N])
+{
+    if constexpr(is_same_v<T1, T2> && is_trivially_copyable_v<T1>)
+    {
+        std::cout << "memcpy\n";
+        memcpy(target, source, sizeof(source));
+    }
+    else
+    {
+        std::cout << "copy using loop\n";
+        for(size_t i = 0; i < N; ++i)
+            target[i] = source[i];
+    }    
+}
+
+TEST_CASE("is_power_of_2")
+{
+    CHECK(is_power_of_2(4));
+    CHECK_FALSE(is_power_of_2(5));
+
+    CHECK(is_power_of_2(8u));
+    CHECK(is_power_of_2(8.0));
+
+    uint8_t tab[5] = {1, 2, 3, 4, 5};
+    int target1[5] = {};
+    mcopy(tab, target1);
+
+    uint8_t target2[5];
+    mcopy(tab, target2);
+
 }
